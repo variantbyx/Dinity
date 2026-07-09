@@ -1,0 +1,27 @@
+# Dinity 🍽️
+
+A restaurant table booking web app built with React, TypeScript, and Vite.
+
+## Features
+
+- Browse and search restaurants
+- Book tables with date, time & guest selection
+- User, Restaurant Owner & Admin roles
+- Owner dashboard to manage bookings
+- Admin panel for approvals
+
+## Tech Stack
+
+- **Frontend:** React 19, TypeScript, Tailwind CSS
+- **Routing:** React Router v7
+- **Build Tool:** Vite
+- **Icons:** Lucide React
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
