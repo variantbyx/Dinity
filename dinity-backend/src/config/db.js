@@ -1,4 +1,12 @@
 const mongoose = require("mongoose");
+const dns = require("dns");
+
+// Set reliable DNS servers for MongoDB Atlas SRV resolution (fixes Windows querySrv ENOTFOUND issues)
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch (err) {
+  // Ignore if custom DNS assignment is restricted
+}
 
 /**
  * Connects to MongoDB Atlas with retry logic.
