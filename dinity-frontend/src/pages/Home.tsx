@@ -8,6 +8,7 @@ import CuisineBrowse from "../components/home/CuisineBrowse.tsx";
 import TrendingRow from "../components/home/TrendingRow.tsx";
 import MembershipSection from "../components/home/MembershipSection.tsx";
 import NewsletterCTA from "../components/home/NewsletterCTA.tsx";
+import { restaurantAPI } from "../api/api";
 import { dummyRestaurant } from "../assets/assets.ts";
 
 export default function Home() {
@@ -16,16 +17,19 @@ export default function Home() {
 
     useEffect(() => {
         const fetchTrending = async () => {
-            const localRest = localStorage.getItem("dummyRestaurants");
-            const restaurantsList = localRest ? JSON.parse(localRest) : dummyRestaurant;
-            
-            if (!localRest) {
-                localStorage.setItem("dummyRestaurants", JSON.stringify(dummyRestaurant));
+            try {
+                const res = await restaurantAPI.getRestaurants({ sort: "rating", limit: 6 });
+                if (res.success && res.data && res.data.length > 0) {
+                    setTrending(res.data);
+                } else {
+                    setTrending(dummyRestaurant.slice(0, 3));
+                }
+            } catch (error) {
+                console.error("Failed to fetch trending restaurants from API:", error);
+                setTrending(dummyRestaurant.slice(0, 3));
+            } finally {
+                setLoading(false);
             }
-
-            const approved = restaurantsList.filter((r: any) => r.status === "approved");
-            setTrending(approved.slice(0, 3));
-            setLoading(false);
         };
         fetchTrending();
     }, []);

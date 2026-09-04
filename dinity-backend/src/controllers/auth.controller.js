@@ -39,8 +39,15 @@ const register = async (req, res, next) => {
 
     // Prevent self-registration as admin
     const safeRole = role === "admin" ? "user" : (role || "user");
+    const sanitizedPhone = phone && phone.trim() !== "" ? phone.trim() : undefined;
 
-    const user = await User.create({ name, email, password, role: safeRole, phone });
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role: safeRole,
+      phone: sanitizedPhone,
+    });
 
     return ApiResponse.success(res, 201, "Account created successfully.", buildAuthPayload(user));
   } catch (error) {

@@ -32,6 +32,8 @@ const createBooking = async (req, res, next) => {
     const nextDay     = new Date(bookingDate);
     nextDay.setDate(nextDay.getDate() + 1);
 
+    // MongoDB Aggregation Pipeline 
+
     const conflictAggregation = await Booking.aggregate([
       {
         $match: {

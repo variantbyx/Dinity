@@ -6,10 +6,9 @@ import Loader from "../../components/Loader.tsx";
 import { useAppContext } from "../../context/AppContext.tsx";
 import { ShieldCheckIcon, CheckCircleIcon, BarChart3Icon } from "lucide-react";
 import toast from "react-hot-toast";
-
-// Subcomponents
 import AdminApprovals from "../../components/admin/AdminApprovals.tsx";
 import AdminStats from "../../components/admin/AdminStats.tsx";
+import { adminAPI } from "../../api/api";
 import { dummyAdminStats, dummyRestaurant } from "../../assets/assets.ts";
 
 export default function AdminDashboard() {
@@ -21,40 +20,53 @@ export default function AdminDashboard() {
     const [btnLoading, setBtnLoading] = useState<string | null>(null);
 
     const fetchAdminData = async () => {
-        const localRest = localStorage.getItem("dummyRestaurants");
-        const restaurantsList = localRest ? JSON.parse(localRest) : dummyRestaurant;
+        setLoading(true);
+        try {
+            const [restaurantsRes, statsRes] = await Promise.all([
+                adminAPI.getAllRestaurants({ limit: 100 }),
+                adminAPI.getStats(),
+            ]);
 
-        if (!localRest) {
-            localStorage.setItem("dummyRestaurants", JSON.stringify(dummyRestaurant));
+            if (restaurantsRes.success && restaurantsRes.data) {
+                setRestaurants(restaurantsRes.data);
+            } else {
+                setRestaurants(dummyRestaurant);
+            }
+
+            if (statsRes.success && statsRes.data) {
+                setStats(statsRes.data);
+            } else {
+                setStats(dummyAdminStats);
+            }
+        } catch (error) {
+            console.error("Failed to load admin data from API:", error);
+            setRestaurants(dummyRestaurant);
+            setStats(dummyAdminStats);
+        } finally {
+            setLoading(false);
         }
-
-        setRestaurants(restaurantsList);
-        setStats(dummyAdminStats);
-        setLoading(false);
     };
 
     const handleApproveStatus = async (restaurantId: string, status: "approved" | "rejected") => {
         setBtnLoading(restaurantId);
         try {
-            const localRest = localStorage.getItem("dummyRestaurants");
-            const restaurantsList = localRest ? JSON.parse(localRest) : dummyRestaurant;
-
-            const updatedList = restaurantsList.map((r: any) =>
-                r._id === restaurantId ? { ...r, status } : r
-            );
-            localStorage.setItem("dummyRestaurants", JSON.stringify(updatedList));
-
-            setRestaurants(updatedList);
-            toast.success(`Restaurant registration status updated to ${status}.`);
+            const res = await adminAPI.updateRestaurantStatus(restaurantId, status);
+            if (res.success) {
+                setRestaurants((prev) =>
+                    prev.map((r) => (r._id === restaurantId ? { ...r, status } : r))
+                );
+                toast.success(`Restaurant registration status updated to ${status}.`);
+            }
         } catch (error: any) {
-            toast.error("Failed to update status");
+            console.error("Failed to update status:", error);
+            toast.error(error.response?.data?.message || "Failed to update restaurant status");
         } finally {
             setBtnLoading(null);
         }
     };
 
     useEffect(() => {
-        (async () => await fetchAdminData())();
+        fetchAdminData();
     }, []);
 
     if (loading) {
@@ -94,16 +106,18 @@ export default function AdminDashboard() {
                         <nav className="flex flex-col gap-1.5">
                             <button
                                 onClick={() => setActiveTab("approvals")}
-                                className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-medium tracking-wider uppercase text-left rounded-sm cursor-pointer transition-colors ${activeTab === "approvals" ? "bg-primary text-white" : "text-black/55 hover:bg-surface"
-                                    }`}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-medium tracking-wider uppercase text-left rounded-sm cursor-pointer transition-colors ${
+                                    activeTab === "approvals" ? "bg-primary text-white" : "text-black/55 hover:bg-surface"
+                                }`}
                             >
                                 <CheckCircleIcon size={14} />
                                 Approvals ({pendingRestaurants.length} Pending)
                             </button>
                             <button
                                 onClick={() => setActiveTab("stats")}
-                                className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-medium tracking-wider uppercase text-left rounded-sm cursor-pointer transition-colors ${activeTab === "stats" ? "bg-primary text-white" : "text-black/55 hover:bg-surface"
-                                    }`}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-medium tracking-wider uppercase text-left rounded-sm cursor-pointer transition-colors ${
+                                    activeTab === "stats" ? "bg-primary text-white" : "text-black/55 hover:bg-surface"
+                                }`}
                             >
                                 <BarChart3Icon size={14} />
                                 Analytics & Stats

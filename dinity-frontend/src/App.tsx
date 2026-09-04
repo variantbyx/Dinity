@@ -63,6 +63,10 @@ export default function App() {
                     } 
                 />
                 <Route 
+                    path="/owner" 
+                    element={<Navigate to="/owner/dashboard" replace />} 
+                />
+                <Route 
                     path="/admin" 
                     element={<Navigate to="/admin/dashboard" replace />} 
                 />

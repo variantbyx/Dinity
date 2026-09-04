@@ -27,7 +27,7 @@ const registerValidators = [
     .isIn(["user", "owner"]).withMessage("Role must be either 'user' or 'owner'"),
 
   body("phone")
-    .optional()
+    .optional({ values: "falsy" })
     .isMobilePhone("any", { strictMode: false }).withMessage("Please provide a valid phone number"),
 ];
 
@@ -49,7 +49,7 @@ const updateProfileValidators = [
     .isLength({ min: 2, max: 60 }).withMessage("Name must be between 2 and 60 characters"),
 
   body("phone")
-    .optional()
+    .optional({ values: "falsy" })
     .isMobilePhone("any", { strictMode: false }).withMessage("Please provide a valid phone number"),
 ];
 

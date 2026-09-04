@@ -6,6 +6,7 @@ import Footer from "../components/Footer.tsx";
 import RestaurantCard from "../components/RestaurantCard.tsx";
 import AuthModal from "../components/AuthModal.tsx";
 import { SlidersHorizontal, Search as SearchIcon, X, Check, MapPin, SearchXIcon } from "lucide-react";
+import { restaurantAPI } from "../api/api";
 import { dummyRestaurant } from "../assets/assets.ts";
 
 export default function Search() {
@@ -30,33 +31,47 @@ export default function Search() {
 
     useEffect(() => {
         const fetchRestaurants = async () => {
-            const localRest = localStorage.getItem("dummyRestaurants");
-            const allRestaurants = localRest ? JSON.parse(localRest) : dummyRestaurant;
-            if (!localRest) localStorage.setItem("dummyRestaurants", JSON.stringify(dummyRestaurant));
+            setLoading(true);
+            try {
+                const params: any = {};
+                if (searchVal) params.search = searchVal;
+                if (locationVal) params.city = locationVal;
+                if (cuisinesSelected.length > 0) params.cuisine = cuisinesSelected.join(",");
+                if (pricesSelected.length > 0) params.priceRange = pricesSelected.join(",");
+                if (sortVal) params.sort = sortVal;
+                params.limit = 50;
 
-            const approved = allRestaurants.filter((r: any) => r.status === "approved");
-            const filtered = approved.filter((r: any) => {
-                const matchesSearch = !searchVal ||
-                    r.name.toLowerCase().includes(searchVal.toLowerCase()) ||
-                    r.cuisine.toLowerCase().includes(searchVal.toLowerCase()) ||
-                    (r.tags && r.tags.some((t: string) => t.toLowerCase().includes(searchVal.toLowerCase())));
-                const matchesLocation = !locationVal ||
-                    r.location.toLowerCase().includes(locationVal.toLowerCase()) ||
-                    r.address.toLowerCase().includes(locationVal.toLowerCase());
-                const matchesCuisine = cuisinesSelected.length === 0 ||
-                    cuisinesSelected.some((c: string) => c.toLowerCase() === r.cuisine.toLowerCase());
-                const matchesPrice = pricesSelected.length === 0 || pricesSelected.includes(r.priceRange);
-                return matchesSearch && matchesLocation && matchesCuisine && matchesPrice;
-            });
-
-            if (sortVal === "price_low") filtered.sort((a: any, b: any) => a.priceRange.length - b.priceRange.length);
-            else if (sortVal === "price_high") filtered.sort((a: any, b: any) => b.priceRange.length - a.priceRange.length);
-
-            setRestaurants(filtered);
-            setLoading(false);
+                const res = await restaurantAPI.getRestaurants(params);
+                if (res.success && res.data) {
+                    setRestaurants(res.data);
+                } else {
+                    setRestaurants([]);
+                }
+            } catch (error) {
+                console.error("Failed to query live restaurants:", error);
+                // Fallback to local mock filtering if server is unreachable
+                const localRest = localStorage.getItem("dummyRestaurants");
+                const allRestaurants = localRest ? JSON.parse(localRest) : dummyRestaurant;
+                const approved = allRestaurants.filter((r: any) => r.status === "approved");
+                const filtered = approved.filter((r: any) => {
+                    const matchesSearch = !searchVal ||
+                        r.name.toLowerCase().includes(searchVal.toLowerCase()) ||
+                        r.cuisine.toLowerCase().includes(searchVal.toLowerCase());
+                    const matchesLocation = !locationVal ||
+                        r.location.toLowerCase().includes(locationVal.toLowerCase()) ||
+                        r.address.toLowerCase().includes(locationVal.toLowerCase());
+                    const matchesCuisine = cuisinesSelected.length === 0 ||
+                        cuisinesSelected.some((c: string) => c.toLowerCase() === r.cuisine.toLowerCase());
+                    const matchesPrice = pricesSelected.length === 0 || pricesSelected.includes(r.priceRange);
+                    return matchesSearch && matchesLocation && matchesCuisine && matchesPrice;
+                });
+                setRestaurants(filtered);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchRestaurants();
-    }, [searchParams, searchVal, locationVal, cuisinesSelected, pricesSelected, sortVal]);
+    }, [searchParams]);
 
     const handleTextSubmit = (e: React.FormEvent) => {
         e.preventDefault();

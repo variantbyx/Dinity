@@ -8,7 +8,8 @@ import RestaurantCard from "../components/RestaurantCard.tsx";
 import AuthModal from "../components/AuthModal.tsx";
 import { CalendarIcon, UsersIcon, ClockIcon, MapPinIcon, CalendarDaysIcon } from "lucide-react";
 import toast from "react-hot-toast";
-import { dummyFeaturedRestaurants, dummyMyBookingsData } from "../assets/assets.ts";
+import { bookingAPI, restaurantAPI } from "../api/api";
+import { dummyFeaturedRestaurants } from "../assets/assets.ts";
 
 const statusColors: Record<string, string> = {
     confirmed: "bg-[#A3704C]/10 text-[#A3704C] border-[#A3704C]/25",
@@ -22,31 +23,54 @@ export default function Dashboard() {
     const [recommendations, setRecommendations] = useState<any[]>([]);
     const [loadingBookings, setLoadingBookings] = useState(true);
 
+    const fetchBookings = async () => {
+        setLoadingBookings(true);
+        try {
+            const res = await bookingAPI.getMyBookings();
+            if (res.success && res.data) {
+                setBookings(res.data);
+            }
+        } catch (error) {
+            console.error("Failed to load user bookings:", error);
+        } finally {
+            setLoadingBookings(false);
+        }
+    };
+
     useEffect(() => {
-        if (!user) return;
-        const local = localStorage.getItem("bookings");
-        const bookingsList = local ? JSON.parse(local) : dummyMyBookingsData;
-        if (!local) localStorage.setItem("bookings", JSON.stringify(dummyMyBookingsData));
-        const userBookings = bookingsList.filter((b: any) => b.user?._id === user?._id || b.user === user?._id);
-        setBookings(userBookings);
-        setLoadingBookings(false);
+        if (user) {
+            fetchBookings();
+        }
     }, [user]);
 
     useEffect(() => {
-        setRecommendations(dummyFeaturedRestaurants);
+        const fetchRecs = async () => {
+            try {
+                const res = await restaurantAPI.getRestaurants({ featured: true, limit: 3 });
+                if (res.success && res.data && res.data.length > 0) {
+                    setRecommendations(res.data);
+                } else {
+                    setRecommendations(dummyFeaturedRestaurants);
+                }
+            } catch {
+                setRecommendations(dummyFeaturedRestaurants);
+            }
+        };
+        fetchRecs();
     }, []);
 
     const handleCancelBooking = async (bookingId: string) => {
-        if (!window.confirm("Cancel this reservation?")) return;
+        if (!window.confirm("Are you sure you want to cancel this reservation?")) return;
         try {
-            const local = localStorage.getItem("bookings");
-            const bookingsList = local ? JSON.parse(local) : dummyMyBookingsData;
-            const updated = bookingsList.map((b: any) => b._id === bookingId ? { ...b, status: "cancelled" } : b);
-            localStorage.setItem("bookings", JSON.stringify(updated));
-            setBookings((prev) => prev.map((b) => b._id === bookingId ? { ...b, status: "cancelled" } : b));
-            toast.success("Reservation cancelled.");
+            const res = await bookingAPI.cancelBooking(bookingId);
+            if (res.success) {
+                toast.success("Reservation cancelled successfully.");
+                setBookings((prev) =>
+                    prev.map((b) => (b._id === bookingId ? { ...b, status: "cancelled" } : b))
+                );
+            }
         } catch (error: any) {
-            toast.error(error?.message || "Could not cancel.");
+            toast.error(error.response?.data?.message || "Could not cancel reservation.");
         }
     };
 
@@ -104,15 +128,20 @@ export default function Dashboard() {
                                         {/* Restaurant info */}
                                         <div className="flex gap-4 items-center">
                                             <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 shadow-gourmet">
-                                                <img src={b.restaurant?.image} alt={b.restaurant?.name} className="w-full h-full object-cover" />
+                                                <img src={b.restaurant?.image || "/restaurant_1.png"} alt={b.restaurant?.name} className="w-full h-full object-cover" />
                                             </div>
                                             <div>
                                                 <span className="text-[9px] font-semibold text-[#A3704C] tracking-widest uppercase">{b.restaurant?.cuisine}</span>
                                                 <h4 className="font-display text-base font-semibold text-[#1A231E] mt-0.5">{b.restaurant?.name}</h4>
                                                 <p className="text-xs text-[#1A231E]/40 flex items-center gap-1 mt-0.5">
                                                     <MapPinIcon size={11} className="text-[#A3704C]" />
-                                                    {b.restaurant?.location}
+                                                    {b.restaurant?.location || b.restaurant?.address}
                                                 </p>
+                                                {b.bookingId && (
+                                                    <span className="text-[10px] font-mono text-[#A3704C] bg-[#A3704C]/10 px-2 py-0.5 rounded mt-1 inline-block">
+                                                        Ref: {b.bookingId}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
 

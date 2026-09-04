@@ -11,7 +11,8 @@ import RestaurantHero from "../components/restaurant/RestaurantHero.tsx";
 import RestaurantInfo from "../components/restaurant/RestaurantInfo.tsx";
 import RestaurantReviews from "../components/restaurant/RestaurantReviews.tsx";
 import BookingWidget from "../components/restaurant/BookingWidget.tsx";
-import { dummyAvailability, dummyRestaurant } from "../assets/assets.ts";
+import { restaurantAPI } from "../api/api";
+import { dummyRestaurant } from "../assets/assets.ts";
 
 export default function RestaurantDetail() {
     const { slug } = useParams<{ slug: string }>();
@@ -22,7 +23,11 @@ export default function RestaurantDetail() {
     const [loading, setLoading] = useState(true);
 
     // Booking Widget states
-    const [selectedDate, setSelectedDate] = useState("");
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return tomorrow.toISOString().split("T")[0];
+    });
     const [selectedGuests, setSelectedGuests] = useState("2");
     const [selectedSlot, setSelectedSlot] = useState("");
     const [slotsAvailability, setSlotsAvailability] = useState<any[]>([]);
@@ -30,22 +35,47 @@ export default function RestaurantDetail() {
 
     useEffect(() => {
         const fetchRestaurant = async () => {
-            const localRest = localStorage.getItem("dummyRestaurants");
-            const restaurantsList = localRest ? JSON.parse(localRest) : dummyRestaurant;
-            setRestaurant(restaurantsList.find((r: any) => r.slug === slug));
-            setLoading(false);
+            if (!slug) return;
+            setLoading(true);
+            try {
+                const res = await restaurantAPI.getRestaurantBySlug(slug);
+                if (res.success && res.data) {
+                    setRestaurant(res.data);
+                } else {
+                    const fallback = dummyRestaurant.find((r: any) => r.slug === slug);
+                    setRestaurant(fallback || null);
+                }
+            } catch (error) {
+                console.error("Failed to load restaurant from backend:", error);
+                const fallback = dummyRestaurant.find((r: any) => r.slug === slug);
+                setRestaurant(fallback || null);
+            } finally {
+                setLoading(false);
+            }
         };
 
-        if (slug) {
-            fetchRestaurant();
-        }
-    }, [slug, navigate]);
+        fetchRestaurant();
+    }, [slug]);
 
     useEffect(() => {
         const fetchAvailability = async () => {
-            setSlotsAvailability(dummyAvailability);
-            setLoadingSlots(false);
+            if (!restaurant?._id || !selectedDate) return;
+            setLoadingSlots(true);
+            try {
+                const res = await restaurantAPI.getAvailability(restaurant._id, selectedDate);
+                if (res.success && res.data?.availability) {
+                    setSlotsAvailability(res.data.availability);
+                } else {
+                    setSlotsAvailability([]);
+                }
+            } catch (error) {
+                console.error("Failed to load real-time slot availability:", error);
+                setSlotsAvailability([]);
+            } finally {
+                setLoadingSlots(false);
+            }
         };
+
         fetchAvailability();
     }, [restaurant?._id, selectedDate]);
 
@@ -53,7 +83,21 @@ export default function RestaurantDetail() {
         return <Loader text="Loading Restaurant Details..." />;
     }
 
-    if (!restaurant) return null;
+    if (!restaurant) {
+        return (
+            <div className="min-h-screen bg-[#FAFAFA] flex flex-col pt-20">
+                <Navbar />
+                <main className="grow flex flex-col items-center justify-center py-20 text-center px-6">
+                    <h2 className="font-display text-2xl font-bold text-[#1A231E] mb-2">Restaurant Not Found</h2>
+                    <p className="text-sm text-[#1A231E]/40 mb-6">The requested establishment could not be retrieved.</p>
+                    <button onClick={() => navigate("/search")} className="btn-press bg-[#A3704C] text-white px-6 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider">
+                        Browse Restaurants
+                    </button>
+                </main>
+                <Footer />
+            </div>
+        );
+    }
 
     const handleReserveClick = () => {
         if (!selectedDate) {

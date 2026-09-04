@@ -10,7 +10,7 @@ import PendingApproval from "../../components/owner/PendingApproval.tsx";
 import RequestRejected from "../../components/owner/RequestRejected.tsx";
 import OwnerBookings from "../../components/owner/OwnerBookings.tsx";
 import OwnerProfileDetails from "../../components/owner/OwnerProfileDetails.tsx";
-import { dummyMyBookingsData, dummyRestaurant } from "../../assets/assets.ts";
+import { bookingAPI, restaurantAPI } from "../../api/api";
 
 export default function OwnerDashboard() {
     const { logout } = useAppContext();
@@ -20,30 +20,34 @@ export default function OwnerDashboard() {
     const [activeTab, setActiveTab] = useState<"bookings" | "details">("bookings");
 
     const fetchOwnerData = async () => {
-        const localRest = localStorage.getItem("dummyRestaurants");
-        const restaurantsList = localRest ? JSON.parse(localRest) : dummyRestaurant;
-        if (!localRest) localStorage.setItem("dummyRestaurants", JSON.stringify(dummyRestaurant));
+        setLoading(true);
+        try {
+            const restRes = await restaurantAPI.getMyRestaurant();
+            if (restRes.success && restRes.data) {
+                setRestaurant(restRes.data);
 
-        const userRestaurant = restaurantsList.find((r: any) => r.owner === "6a32a3c50e88c825d8873f77");
-        setRestaurant(userRestaurant || null);
-
-        const localBookings = localStorage.getItem("bookings");
-        const bookingsList = localBookings ? JSON.parse(localBookings) : dummyMyBookingsData;
-        if (!localBookings) localStorage.setItem("bookings", JSON.stringify(dummyMyBookingsData));
-
-        if (userRestaurant) {
-            const restaurantBookings = bookingsList.filter(
-                (b: any) => (b.restaurant?._id === userRestaurant._id) || (b.restaurant === userRestaurant._id)
-            );
-            setBookings(restaurantBookings);
-        } else {
+                // Fetch bookings for this owner's restaurant
+                const bookingsRes = await bookingAPI.getRestaurantBookings();
+                if (bookingsRes.success && bookingsRes.data) {
+                    setBookings(bookingsRes.data);
+                } else {
+                    setBookings([]);
+                }
+            } else {
+                setRestaurant(null);
+                setBookings([]);
+            }
+        } catch (error) {
+            console.error("Failed to load owner data:", error);
+            setRestaurant(null);
             setBookings([]);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
-        (async () => await fetchOwnerData())();
+        fetchOwnerData();
     }, []);
 
     if (loading) return <Loader text="Loading Owner Portal..." />;

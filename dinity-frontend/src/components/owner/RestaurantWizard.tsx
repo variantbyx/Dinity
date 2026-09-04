@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { Utensils, Upload, Image } from "lucide-react";
 import toast from "react-hot-toast";
-import { dummyRestaurant } from "../../assets/assets.ts";
+
+import { restaurantAPI } from "../../api/api";
 
 interface RestaurantWizardProps {
     setRestaurant: (restaurant: any) => void;
@@ -70,42 +70,30 @@ export default function RestaurantWizard({ setRestaurant }: RestaurantWizardProp
         e.preventDefault();
         setFormLoading(true);
         try {
-            const newRestaurant = {
-                _id: "rest_" + Date.now(),
-                name,
-                slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, ""),
-                description,
-                cuisine,
-                priceRange,
-                location,
-                address,
-                chef,
-                tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-                availableSlots,
-                featured: false,
-                exclusive: false,
-                owner: "6a32a3c50e88c825d8873f77",
-                status: "pending",
-                totalSeats: Number(totalSeats),
-                image: imagePreview || "/restaurant_1.png",
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
-
-            const localRest = localStorage.getItem("dummyRestaurants");
-            const restaurantsList = localRest ? JSON.parse(localRest) : dummyRestaurant;
-
-            if (!localRest) {
-                localStorage.setItem("dummyRestaurants", JSON.stringify(dummyRestaurant));
+            const formData = new FormData();
+            formData.append("name", name);
+            formData.append("description", description);
+            formData.append("cuisine", cuisine);
+            formData.append("priceRange", priceRange);
+            formData.append("location", location);
+            formData.append("address", address);
+            formData.append("chef", chef);
+            formData.append("tags", tags);
+            formData.append("availableSlots", JSON.stringify(availableSlots));
+            formData.append("totalSeats", totalSeats);
+            if (imageFile) {
+                formData.append("image", imageFile);
             }
 
-            const updatedList = [...restaurantsList, newRestaurant];
-            localStorage.setItem("dummyRestaurants", JSON.stringify(updatedList));
-
-            setRestaurant(newRestaurant);
-            toast.success("Restaurant profile submitted successfully! Awaiting Admin approval.");
+            const res = await restaurantAPI.createRestaurant(formData);
+            if (res.success && res.data) {
+                setRestaurant(res.data);
+                toast.success("Restaurant profile submitted successfully! Awaiting Admin approval.");
+            }
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Failed to register restaurant");
+            console.error("Restaurant creation failed:", error);
+            const msg = error.response?.data?.message || "Failed to register restaurant";
+            toast.error(msg);
         } finally {
             setFormLoading(false);
         }

@@ -10,7 +10,8 @@ import Loader from "../components/Loader.tsx";
 import BookingSuccess from "../components/booking/BookingSuccess.tsx";
 import BookingSummary from "../components/booking/BookingSummary.tsx";
 import BookingForm from "../components/booking/BookingForm.tsx";
-import { dummyRestaurant, dummyMyBookingsData } from "../assets/assets.ts";
+import { bookingAPI, restaurantAPI } from "../api/api";
+import { dummyRestaurant } from "../assets/assets.ts";
 
 export default function BookingConfirmation() {
     const { slug } = useParams<{ slug: string }>();
@@ -36,34 +37,54 @@ export default function BookingConfirmation() {
     const guests = searchParams.get("guests") || "2";
 
     useEffect(() => {
-        // Prefill form when user details load
         if (user) {
-            (() => {
-                setName(user.name);
-                setEmail(user.email);
-                if (user.phone) setPhone(user.phone);
-            })();
+            setName(user.name || "");
+            setEmail(user.email || "");
+            if (user.phone) setPhone(user.phone);
         }
     }, [user]);
 
     useEffect(() => {
         const fetchRestaurant = async () => {
-            const localRest = localStorage.getItem("dummyRestaurants");
-            const restaurantsList = localRest ? JSON.parse(localRest) : dummyRestaurant;
-            setRestaurant(restaurantsList.find((r: any) => r.slug === slug));
-            setLoading(false);
+            if (!slug) return;
+            try {
+                const res = await restaurantAPI.getRestaurantBySlug(slug);
+                if (res.success && res.data) {
+                    setRestaurant(res.data);
+                } else {
+                    const fallback = dummyRestaurant.find((r: any) => r.slug === slug);
+                    setRestaurant(fallback || null);
+                }
+            } catch (error) {
+                console.error("Failed to load restaurant:", error);
+                const fallback = dummyRestaurant.find((r: any) => r.slug === slug);
+                setRestaurant(fallback || null);
+            } finally {
+                setLoading(false);
+            }
         };
 
-        if (slug) {
-            fetchRestaurant();
-        }
-    }, [slug, navigate]);
+        fetchRestaurant();
+    }, [slug]);
 
     if (loading) {
         return <Loader text="Retrieving Dining Details..." />;
     }
 
-    if (!restaurant) return null;
+    if (!restaurant) {
+        return (
+            <div className="min-h-screen bg-[#FAFAFA] flex flex-col pt-20">
+                <Navbar />
+                <main className="grow flex flex-col items-center justify-center py-20 text-center px-6">
+                    <h2 className="font-display text-2xl font-bold text-[#1A231E] mb-2">Establishment Not Found</h2>
+                    <button onClick={() => navigate("/search")} className="btn-press bg-[#A3704C] text-white px-6 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider mt-4">
+                        Return to Search
+                    </button>
+                </main>
+                <Footer />
+            </div>
+        );
+    }
 
     const handleConfirmSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,47 +96,26 @@ export default function BookingConfirmation() {
 
         try {
             setConfirming(true);
-            const newBooking = {
-                _id: "booking_" + Date.now(),
-                user: {
-                    _id: user?._id || "6a32a3c50e88c825d8873f75",
-                    name: name || user?.name || "Diner User",
-                    email: email || user?.email || "diner@example.com"
-                },
-                restaurant: {
-                    _id: restaurant._id,
-                    name: restaurant.name,
-                    slug: restaurant.slug,
-                    location: restaurant.location,
-                    address: restaurant.address,
-                    image: restaurant.image,
-                    cuisine: restaurant.cuisine
-                },
+            const bookingPayload = {
+                restaurantId: restaurant._id,
                 date: new Date(date).toISOString(),
                 time: slot,
-                guests: Number(guests),
-                occasion: occasion,
-                specialRequests: specialRequests,
-                status: "confirmed",
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                bookingId: "GR-" + Math.random().toString(36).substring(2, 10).toUpperCase()
+                guests: parseInt(guests, 10),
+                occasion: occasion.trim(),
+                specialRequests: specialRequests.trim(),
             };
 
-            const localBookings = localStorage.getItem("bookings");
-            const bookingsList = localBookings ? JSON.parse(localBookings) : dummyMyBookingsData;
-
-            if (!localBookings) {
-                localStorage.setItem("bookings", JSON.stringify(dummyMyBookingsData));
+            const res = await bookingAPI.createBooking(bookingPayload);
+            if (res.success && res.data) {
+                setConfirmedBooking(res.data);
+                toast.success("Table reserved successfully!");
             }
-
-            const updatedBookings = [newBooking, ...(localBookings ? bookingsList : dummyMyBookingsData)];
-            localStorage.setItem("bookings", JSON.stringify(updatedBookings));
-
-            setConfirmedBooking(newBooking);
-            toast.success("Reservation confirmed!");
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || error?.message);
+            console.error("Booking error:", error);
+            const msg =
+                error.response?.data?.message ||
+                "Failed to reserve table. The slot may have filled up or is no longer available.";
+            toast.error(msg);
         } finally {
             setConfirming(false);
         }
@@ -127,7 +127,13 @@ export default function BookingConfirmation() {
             <div className="min-h-screen bg-[#FAFAFA] flex flex-col pt-20">
                 <Navbar />
                 <main className="grow flex items-center justify-center py-16 px-6 bg-[#F5F2EF]">
-                    <BookingSuccess confirmedBooking={confirmedBooking} restaurant={restaurant} date={date} slot={slot} guests={guests} />
+                    <BookingSuccess
+                        confirmedBooking={confirmedBooking}
+                        restaurant={restaurant}
+                        date={date}
+                        slot={slot}
+                        guests={guests}
+                    />
                 </main>
                 <Footer />
             </div>
@@ -138,25 +144,26 @@ export default function BookingConfirmation() {
         <div className="min-h-screen bg-[#FAFAFA] flex flex-col pt-20">
             <Navbar />
 
-            {/* Main Booking Content */}
-            <main className="grow max-w-7xl w-full mx-auto px-6 md:px-10 py-12">
-                {/* Breadcrumb */}
-                <div className="flex items-center gap-2 mb-10 pb-4 border-b border-[#D5CFC8]/40 text-xs text-[#1A231E]/40">
-                    <Link to={`/restaurant/${restaurant.slug}`} className="hover:text-[#A3704C] transition-fast">
-                        {restaurant.name}
-                    </Link>
-                    <ChevronRight size={12} className="text-[#D5CFC8]" />
-                    <span className="text-[#A3704C] font-medium">Details & Confirmation</span>
+            {/* Breadcrumb Header */}
+            <div className="bg-white border-b border-[#D5CFC8]/40 py-5">
+                <div className="max-w-7xl mx-auto px-6 md:px-10 flex items-center gap-2 text-xs text-[#1A231E]/40 font-medium">
+                    <Link to="/" className="hover:text-[#A3704C] transition-fast">Home</Link>
+                    <ChevronRight size={12} />
+                    <Link to={`/restaurant/${restaurant.slug}`} className="hover:text-[#A3704C] transition-fast">{restaurant.name}</Link>
+                    <ChevronRight size={12} />
+                    <span className="text-[#A3704C] font-semibold">Confirm Reservation</span>
                 </div>
+            </div>
 
+            <main className="grow max-w-7xl w-full mx-auto px-6 md:px-10 py-12">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-                    {/* Left Column (Reservation Summary) */}
-                    <div className="lg:col-span-5">
+                    {/* Left: Summary Card */}
+                    <div className="lg:col-span-4 lg:sticky lg:top-36">
                         <BookingSummary restaurant={restaurant} date={date} slot={slot} guests={guests} />
                     </div>
 
-                    {/* Right Column (Guest Details Form) */}
-                    <div className="lg:col-span-7">
+                    {/* Right: Guest Form */}
+                    <div className="lg:col-span-8">
                         <BookingForm
                             name={name}
                             setName={setName}
