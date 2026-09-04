@@ -9,12 +9,15 @@ const api = axios.create({
     },
 });
 
-// Request Interceptor: Attach JWT Token
+// Request Interceptor: Attach JWT Token & handle FormData boundaries
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("token");
         if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
+        }
+        if (config.data instanceof FormData && config.headers) {
+            delete config.headers["Content-Type"];
         }
         return config;
     },
@@ -46,7 +49,7 @@ export const authAPI = {
         const response = await api.get("/auth/me");
         return response.data;
     },
-    updateProfile: async (data: { name?: string; phone?: string }) => {
+    updateProfile: async (data: FormData | { name?: string; phone?: string }) => {
         const response = await api.put("/auth/profile", data);
         return response.data;
     },
@@ -82,15 +85,11 @@ export const restaurantAPI = {
         return response.data;
     },
     createRestaurant: async (formData: FormData) => {
-        const response = await api.post("/restaurants", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
+        const response = await api.post("/restaurants", formData);
         return response.data;
     },
     updateRestaurant: async (id: string, formData: FormData) => {
-        const response = await api.put(`/restaurants/${id}`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
+        const response = await api.put(`/restaurants/${id}`, formData);
         return response.data;
     },
     deleteRestaurant: async (id: string) => {

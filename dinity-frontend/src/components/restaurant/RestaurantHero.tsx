@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Star, MapPin } from "lucide-react";
-import { dummyRating, dummyReviewCount } from "../../assets/assets.ts";
+import { dummyRating, dummyReviewCount, assets } from "../../assets/assets.ts";
 
 interface RestaurantHeroProps {
     restaurant: any;
@@ -9,12 +9,17 @@ interface RestaurantHeroProps {
 export default function RestaurantHero({ restaurant }: RestaurantHeroProps) {
     if (!restaurant) return null;
 
+    const imageUrl = restaurant.image && restaurant.image.trim() !== "" ? restaurant.image : assets.default_restaurant_img;
+
     return (
         <section className="relative h-[520px] w-full overflow-hidden">
             <img
-                src={restaurant.image}
+                src={imageUrl}
                 alt={restaurant.name}
                 className="w-full h-full object-cover brightness-[0.65]"
+                onError={(e) => {
+                    (e.target as HTMLImageElement).src = assets.default_restaurant_img;
+                }}
             />
             {/* Gradient layers */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#11161B]/80 via-[#11161B]/20 to-transparent" />

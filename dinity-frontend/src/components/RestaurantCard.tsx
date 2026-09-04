@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Star, MapPinIcon, Clock } from "lucide-react";
-import { dummyRating } from "../assets/assets.ts";
+import { dummyRating, assets } from "../assets/assets.ts";
 
 interface RestaurantCardProps {
     restaurant: {
@@ -42,15 +42,20 @@ export default function RestaurantCard({ restaurant }: RestaurantCardProps) {
         })
         .slice(0, 3);
 
+    const imageUrl = restaurant.image && restaurant.image.trim() !== "" ? restaurant.image : assets.default_restaurant_img;
+
     return (
         <div className="restaurant-card group relative bg-white border border-[#D5CFC8]/60 card-lift overflow-hidden rounded-2xl flex flex-col h-full shadow-gourmet">
             {/* Image */}
             <Link to={`/restaurant/${restaurant.slug}`} className="relative h-56 overflow-hidden block">
                 <img
-                    src={restaurant.image}
+                    src={imageUrl}
                     alt={restaurant.name}
                     className="restaurant-card-img w-full h-full object-cover"
                     loading="lazy"
+                    onError={(e) => {
+                        (e.target as HTMLImageElement).src = assets.default_restaurant_img;
+                    }}
                 />
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Calendar, Users, Clock, MapPin, ShieldCheck } from "lucide-react";
+import { assets } from "../../assets/assets.ts";
 
 interface BookingSummaryProps {
     restaurant: any;
@@ -11,14 +12,19 @@ interface BookingSummaryProps {
 export default function BookingSummary({ restaurant, date, slot, guests }: BookingSummaryProps) {
     if (!restaurant) return null;
 
+    const imageUrl = restaurant.image && restaurant.image.trim() !== "" ? restaurant.image : assets.default_restaurant_img;
+
     return (
         <div className="bento-tile text-left overflow-hidden sticky top-24">
             {/* Restaurant image header */}
             <div className="relative h-40 overflow-hidden">
                 <img
-                    src={restaurant.image}
+                    src={imageUrl}
                     alt={restaurant.name}
                     className="w-full h-full object-cover brightness-[0.75]"
+                    onError={(e) => {
+                        (e.target as HTMLImageElement).src = assets.default_restaurant_img;
+                    }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#11161B]/60 to-transparent" />
                 <div className="absolute bottom-4 left-5">

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { Upload, Image } from "lucide-react";
-import { dummyRestaurant } from "../../assets/assets.ts";
+import { restaurantAPI } from "../../api/api.ts";
 
 interface OwnerProfileDetailsProps {
     restaurant: any;
@@ -80,34 +80,32 @@ export default function OwnerProfileDetails({ restaurant, setRestaurant }: Owner
         e.preventDefault();
         setFormLoading(true);
         try {
-            const updatedRestaurant = {
-                ...restaurant,
-                name,
-                description,
-                cuisine,
-                priceRange,
-                location,
-                address,
-                chef,
-                tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-                availableSlots,
-                totalSeats: Number(totalSeats),
-                image: imagePreview,
-                updatedAt: new Date().toISOString()
-            };
+            const formData = new FormData();
+            formData.append("name", name);
+            formData.append("description", description);
+            formData.append("cuisine", cuisine);
+            formData.append("priceRange", priceRange);
+            formData.append("location", location);
+            formData.append("address", address);
+            formData.append("chef", chef);
+            formData.append("tags", tags);
+            formData.append("availableSlots", JSON.stringify(availableSlots));
+            formData.append("totalSeats", totalSeats);
+            if (imageFile) {
+                formData.append("image", imageFile);
+            }
 
-            const localRest = localStorage.getItem("dummyRestaurants");
-            const restaurantsList = localRest ? JSON.parse(localRest) : dummyRestaurant;
-
-            const updatedList = restaurantsList.map((r: any) =>
-                r._id === restaurant._id ? updatedRestaurant : r
-            );
-            localStorage.setItem("dummyRestaurants", JSON.stringify(updatedList));
-
-            setRestaurant(updatedRestaurant);
-            toast.success("Profile details updated successfully!");
+            const res = await restaurantAPI.updateRestaurant(restaurant._id, formData);
+            if (res.success && res.data) {
+                setRestaurant(res.data);
+                setImagePreview(res.data.image || imagePreview);
+                setImageFile(null);
+                toast.success("Profile details and image updated successfully!");
+            }
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Update failed");
+            console.error("Restaurant update failed:", error);
+            const msg = error.response?.data?.message || "Failed to update restaurant details";
+            toast.error(msg);
         } finally {
             setFormLoading(false);
         }
